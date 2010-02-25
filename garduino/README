@@ -1,0 +1,16 @@
+This is my version of Luke Iseman's "Garduino" garden controller from Make
+Magazine issue #18: http://makezine.com/18/garduino/
+
+I did not reuse any of Luke's code; this is an original rewrite. Note that my
+particular configuration is also simpler than Luke's, in that I use an Earthbox
+self-watering planter, and thus don't use any of Luke's moisture sensor
+circuits or code.
+
+The code is a straight-up Arduino loop, and uses the DateTime library to only
+operate the grow light during daytime. The main loop pumps a state machine and
+a command (input) parser over the serial port. This allows it to read commands
+from a host either over USB or Bluetooth. Note that if you use a BlueSMiRF or
+other TTL device hooked up to the RX/TX pins on the Arduino, it blocks the USB
+port from being used to program the device.
+
+Currently I grow basil. Skip the 420 jokes, I've heard them all by now.
