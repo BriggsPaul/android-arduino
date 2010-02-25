@@ -1,2 +1,4 @@
 syntax: glob
 */*/applet
+*/*/gen
+*/*/bin
