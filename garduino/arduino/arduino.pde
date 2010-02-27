@@ -51,15 +51,16 @@ int high_water_unlit = 0;
 int low_water_lit = 10000;
 int low_water_unlit = 10000;
 int dark_history = 0;
-unsigned long current_millis = 0, prev_millis = 0, state_dump_time = 0;
+unsigned long current_millis = 0, state_dump_time = 0;
 
-struct {
+struct wall_time_struct {
   unsigned long raw;
   int init;
   unsigned int hours;
   unsigned int minutes;
   unsigned int seconds;
-} wall_time;
+};
+struct wall_time_struct wall_time;
 
 void setup() {
   pinMode(LIGHTS, OUTPUT);
@@ -71,7 +72,7 @@ void setup() {
 // clears all state value and drops back to the start state
 void reset() {
   illuminated_seconds = light_level = is_lit = lights_hold = dark_history = 0;
-  state_dump_time = current_millis = prev_millis = 0;
+  state_dump_time = current_millis = 0;
   wall_time.raw = wall_time.hours = wall_time.minutes = wall_time.seconds = 0;
   wall_time.init = 0;
   high_water_lit = high_water_unlit = 0;
@@ -113,14 +114,11 @@ void process_incoming() {
           Serial.flush(); // results in a flush loop until we catch up with other side
         } else {
           // we have everything we need, now just set the time
-          l = (((unsigned long)Serial.read()) << 24);
-          wall_time.raw = l;
-          l = (((unsigned long)Serial.read()) << 16);
-          wall_time.raw = wall_time.raw | l;
-          wall_time.raw = wall_time.raw | ((Serial.read() << 8) & 0xff00);
-          wall_time.raw= wall_time.raw | (Serial.read() & 0xff);
+          wall_time.raw  = ((((unsigned long)Serial.read()) << 24) & 0xff000000);
+          wall_time.raw |= ((((unsigned long)Serial.read()) << 16) & 0xff0000);
+          wall_time.raw |= ((((unsigned long)Serial.read()) << 8) & 0xff00);
+          wall_time.raw |= (((unsigned long)Serial.read()) & 0xff);
 	  wall_time.init = 1;
-	  current_millis = prev_millis = millis();
           if (state == STATE_TIME_UNSET)
             state = STATE_DAYTIME;
         }
@@ -154,14 +152,16 @@ void dump_state() {
   }
   Serial.print("current_time=");
   Serial.print(wall_time.hours, DEC);
-  Serial.print(" ");
+  Serial.print(":");
   if (wall_time.minutes < 10)
     Serial.print("0");
   Serial.print(wall_time.minutes, DEC);
-  Serial.print(" ");
+  Serial.print(":");
   if (wall_time.seconds < 10)
     Serial.print("0");
   Serial.println(wall_time.seconds, DEC);
+  Serial.print("raw_time=");
+  Serial.println(wall_time.raw);
   Serial.print("light_level=");
   Serial.println(light_level);
   Serial.print("light_on=");
@@ -181,10 +181,9 @@ void dump_state() {
   Serial.println("");
 }
 
+unsigned long prev_time = 0;
 // This is where the real work happens -- but only during daytime hours.
 void do_daytime() {
-  static unsigned long prev_time = 0;
-
   // if we've crossed into nighttime, switch state and bail
   if (wall_time.hours < START_HOUR || wall_time.hours >= END_HOUR) {
     state = STATE_NIGHTTIME;
@@ -193,7 +192,7 @@ void do_daytime() {
 
   // this gates execution so that code below this block happens only once per second instead of once per looper pass
   if (wall_time.raw != prev_time)
-    prev_time = cur_time;
+    prev_time = wall_time.raw;
   else
     return;
  
@@ -252,13 +251,22 @@ void do_nighttime() {
 }
 
 void loop() {
-  current_time = millis();
+  unsigned long tmp = 0;
+  static unsigned long prev_millis = 0;
+
+  current_millis = millis();
+
   if (wall_time.init) {
-    wall_time.raw = current_time / 1000;
+    tmp = current_millis / 1000;
+    if (tmp != prev_millis) {
+      prev_millis = tmp;
+      wall_time.raw++;
+    }
     wall_time.seconds = wall_time.raw % 60;
     wall_time.minutes = (wall_time.raw / 60) % 60;
     wall_time.hours = (wall_time.raw / (60 * 60)) % 24;
   }
+
   switch(state) {
     case STATE_START:
       reset();
@@ -280,4 +288,8 @@ void loop() {
     dump_state();
     state_dump_time = current_millis;
   }
+}
+
+extern "C" void __cxa_pure_virtual(void) {
+  while(1);
 }
