@@ -16,28 +16,24 @@
 
 package net.morrildl.garduino;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.Map.Entry;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 public class Garduino extends Activity {
 	private Handler handler;
-	private BluetoothDevice device;
 	private CommThread thread;
+	private ProgressDialog dialog;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -45,16 +41,43 @@ public class Garduino extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 		handler = new Handler() {
+			@SuppressWarnings("unchecked")
 			@Override
 			public void handleMessage(Message msg) {
 				super.handleMessage(msg);
 				Map<String, String> params = (Map<String, String>)msg.obj;
-				StringBuffer sb = new StringBuffer();
-				for (Entry<String, String> entry : params.entrySet()) {
-					sb.append(entry.getKey()).append("=").append(entry.getValue()).append("\n");
+				
+				String state = params.get("state");
+				Log.e("booga", state);
+				int imageResource;
+				if ("DAYTIME".equals(state)) {
+					imageResource = R.drawable.sun;
+				} else if ("NIGHTTIME".equals(state)) {
+					imageResource = R.drawable.moon;					
+				} else if ("TIME_UNSET".equals(state)) {
+					imageResource = R.drawable.clock;					
+				} else {
+					imageResource = R.drawable.qm;
 				}
-				((TextView)(findViewById(R.id.textarea))).setText(sb.toString());
-			}			
+				((ImageView)findViewById(R.id.state_image)).setImageResource(imageResource);
+
+				String value = params.get("current_time");
+				((TextView)findViewById(R.id.garduino_time)).setText(value);
+
+				value = params.get("dark_history");
+				((TextView)findViewById(R.id.darkness)).setText(value);
+
+				value = params.get("light_on");
+				if ("1".equals(value))
+					((TextView)findViewById(R.id.light_status)).setText("On");
+				else if ("0".equals(value))
+					((TextView)findViewById(R.id.light_status)).setText("Off");
+				else
+					((TextView)findViewById(R.id.light_status)).setText("Unknown");
+
+				value = params.get("light_level");
+				((TextView)findViewById(R.id.light_intensity)).setText(value);
+			}
 		};
 		
 		((Button)findViewById(R.id.reset_button)).setOnClickListener(new View.OnClickListener() {
@@ -82,48 +105,18 @@ public class Garduino extends Activity {
 	@Override
 	public void onStart() {
 		super.onStart();
-		setupBluetooth();
+		dialog = ProgressDialog.show(this, "Connecting", "Searching for a Bluetooth serial port...");
+		thread = new CommThread(BluetoothAdapter.getDefaultAdapter(), dialog, handler);
+		thread.start();
 	}
 	
 	@Override
 	public void onPause() {
 		super.onPause();
+		if (dialog != null && dialog.isShowing())
+			dialog.dismiss();
 		if (thread != null)
 			thread.cancel();
 		thread = null;
-	}
-
-	private void setupBluetooth() {
-		Log.e("setupBluetooth", "start");
-		BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-		if (adapter == null)
-			return;
-
-		Set<BluetoothDevice> devices = adapter.getBondedDevices();
-		device = null;
-		for (BluetoothDevice curDevice : devices) {
-			Log.e("setupBluetooth", curDevice.getName());
-			if (curDevice.getName().matches(".*[Ff]ire[fF]ly.*")) {
-				device = curDevice;
-				break;
-			}
-		}
-		if (device == null)
-			device = adapter.getRemoteDevice("00:06:66:03:A7:52");
-
-		Log.e("setupBluetooth", device.getName());
-		BluetoothSocket socket = null;
-		try {
-			socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-			socket.connect();
-		} catch (IOException e) {
-			socket = null;
-        	Log.e("setupBluetooth", "ioe", e);
-		}
-		if (socket == null) return;
-		Log.e("setupBluetooth", "starting thread");
-
-		thread = new CommThread(socket, handler);
-		thread.start();
 	}
 }

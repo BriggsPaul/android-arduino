@@ -13,28 +13,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
+
 package net.morrildl.garduino;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.UUID;
 
+import android.app.ProgressDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.os.Handler;
 import android.util.Log;
 
 class CommThread extends Thread {
-    private final BluetoothSocket socket;
-    private final InputStream istream;
-    private final OutputStream ostream;
-    private final Handler handler;
+    private BluetoothSocket socket;
+    private InputStream istream;
+    private OutputStream ostream;
+    private Handler handler;
+	private ProgressDialog dialog;
+	private BluetoothAdapter adapter;
 
-    public CommThread(BluetoothSocket socket, Handler handler) {
-        this.socket = socket;
+    public CommThread(BluetoothAdapter adapter, ProgressDialog dialog, Handler handler) {
+        this.handler = handler;
+        this.dialog = dialog;
+        this.adapter = adapter;
+    }
+
+    public void run() {
+		if (adapter == null)
+			return;
+
+		Set<BluetoothDevice> devices = adapter.getBondedDevices();
+		BluetoothDevice device = null;
+		for (BluetoothDevice curDevice : devices) {
+			if (curDevice.getName().matches(".*[Ff]ire[fF]ly.*")) {
+				device = curDevice;
+				break;
+			}
+		}
+		if (device == null)
+			device = adapter.getRemoteDevice("00:06:66:03:A7:52");
+
+		try {
+			socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+			socket.connect();
+		} catch (IOException e) {
+			socket = null;
+		}
+		if (socket == null) return;
+
         InputStream tmpIn = null;
         OutputStream tmpOut = null;
-        this.handler = handler;
 
         try {
             tmpIn = socket.getInputStream();
@@ -43,13 +77,13 @@ class CommThread extends Thread {
 
         istream = tmpIn;
         ostream = tmpOut;
-    }
+        
+        if (dialog != null && dialog.isShowing())
+        	dialog.dismiss();
 
-    public void run() {
-    	StringBuffer sb = new StringBuffer();
+        StringBuffer sb = new StringBuffer();
         byte[] buffer = new byte[1024];  // buffer store for the stream
         int bytes; // bytes returned from read()
-        String s;
         String message;
         int idx;
         HashMap<String, String> hm;

@@ -1,29 +1,122 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     >
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal"
-    android:layout_width="fill_parent"
+<ImageView
+    android:id="@+id/state_image"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    >
+    android:layout_alignParentTop="true"
+    android:layout_centerHorizontal="true"
+    android:src="@drawable/qm"
+    android:layout_margin="10dip"
+    />
+<View
+    android:id="@+id/center_aligner"
+    android:layout_width="5dip"
+    android:layout_height="2dip"
+    android:layout_centerHorizontal="true"
+    android:layout_below="@id/state_image"
+    />
+
+<TextView
+    android:id="@+id/garduino_time_label"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text="@string/garduino_time_label"
+    android:layout_toLeftOf="@id/center_aligner"
+    android:layout_below="@id/center_aligner"
+    android:textSize="20sp"
+    />
+<TextView
+    android:id="@+id/garduino_time"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text=""
+    android:layout_toRightOf="@id/center_aligner"
+    android:layout_below="@id/center_aligner"
+    android:textSize="20sp"
+    />
+
+<TextView
+    android:id="@+id/light_status_label"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text="@string/light_status_label"
+    android:layout_toLeftOf="@id/center_aligner"
+    android:layout_below="@id/garduino_time_label"
+    android:textSize="20sp"
+    />
+<TextView
+    android:id="@+id/light_status"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text=""
+    android:layout_toRightOf="@id/center_aligner"
+    android:layout_below="@id/garduino_time_label"
+    android:textSize="20sp"
+    />
+
+<TextView
+    android:id="@+id/light_intensity_label"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text="@string/light_intensity_label"
+    android:layout_toLeftOf="@id/center_aligner"
+    android:layout_below="@id/light_status_label"
+    android:textSize="20sp"
+    />
+<TextView
+    android:id="@+id/light_intensity"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text=""
+    android:layout_toRightOf="@id/center_aligner"
+    android:layout_below="@id/light_status_label"
+    android:textSize="20sp"
+    />
+
+<TextView
+    android:id="@+id/darkness_label"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text="@string/darkness_label"
+    android:layout_toLeftOf="@id/center_aligner"
+    android:layout_below="@id/light_intensity_label"
+    android:textSize="20sp"
+    />
+<TextView
+    android:id="@+id/darkness"
+    android:layout_width="wrap_content" 
+    android:layout_height="wrap_content" 
+    android:text=""
+    android:layout_toRightOf="@id/center_aligner"
+    android:layout_below="@id/light_intensity_label"
+    android:textSize="20sp"
+    />
+
+<LinearLayout android:orientation="horizontal"
+	android:layout_width="fill_parent"
+	android:layout_height="wrap_content"
+	android:background="@android:color/darker_gray"
+	android:id="@+id/button_bar"
+	android:layout_alignParentBottom="true"
+	>
 <Button
     android:id="@+id/reset_button"
     android:text="@string/reset_button"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"/>
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    />
 <Button
     android:id="@+id/set_time_button"
     android:text="@string/set_time_button"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"/>
-</LinearLayout>
-<TextView
-    android:id="@+id/textarea"
-    android:layout_width="fill_parent" 
-    android:layout_height="wrap_content" 
-    android:text="@string/hello"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
     />
 </LinearLayout>
+</RelativeLayout>
