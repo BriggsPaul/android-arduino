@@ -35,7 +35,7 @@
 # $Id$
 
 TARGET = $(notdir $(CURDIR))
-INSTALL_DIR = /raid/Dan/arduino-0017
+INSTALL_DIR = /opt/arduino-0017
 PORT = /dev/ttyUSB0
 UPLOAD_RATE = 57600
 AVRDUDE_PROGRAMMER = stk500v1

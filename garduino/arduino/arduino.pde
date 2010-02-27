@@ -15,7 +15,6 @@
  *
  * NOTE: CODE AT THE BOTTOM OF THIS FILE IS UNDER A DIFFERENT LICENSE.
  */
-#include <DateTime.h>
 
 // I/O pin definitions
 #define LED 2
@@ -43,9 +42,7 @@
 
 // state variables
 int state = STATE_START;
-unsigned long state_dump_time = 0;
 int illuminated_seconds = 0;
-time_t cur_time = 0, prev_time = 0;
 int light_level = 0;
 int lights_hold = 0;
 int is_lit = 0;
@@ -54,6 +51,15 @@ int high_water_unlit = 0;
 int low_water_lit = 10000;
 int low_water_unlit = 10000;
 int dark_history = 0;
+unsigned long current_millis = 0, prev_millis = 0, state_dump_time = 0;
+
+struct {
+  unsigned long raw;
+  int init;
+  unsigned int hours;
+  unsigned int minutes;
+  unsigned int seconds;
+} wall_time;
 
 void setup() {
   pinMode(LIGHTS, OUTPUT);
@@ -65,7 +71,9 @@ void setup() {
 // clears all state value and drops back to the start state
 void reset() {
   illuminated_seconds = light_level = is_lit = lights_hold = dark_history = 0;
-  state_dump_time = cur_time = prev_time = 0;
+  state_dump_time = current_millis = prev_millis = 0;
+  wall_time.raw = wall_time.hours = wall_time.minutes = wall_time.seconds = 0;
+  wall_time.init = 0;
   high_water_lit = high_water_unlit = 0;
   low_water_lit = low_water_unlit = 10000;
   state = STATE_TIME_UNSET;
@@ -75,7 +83,6 @@ void reset() {
 // examines the serial/TTL input, looking for command codes, and executes any it finds
 void process_incoming() {
   unsigned char cmd_type, opcode = 0;
-  time_t init_time = 0;
   unsigned long l = 0, start = 0;
   while (Serial.available() >= 2) { // keep going as long as it we might have messages
     cmd_type = (unsigned char)(Serial.read() & 0xff);
@@ -107,12 +114,13 @@ void process_incoming() {
         } else {
           // we have everything we need, now just set the time
           l = (((unsigned long)Serial.read()) << 24);
-          init_time = l;
+          wall_time.raw = l;
           l = (((unsigned long)Serial.read()) << 16);
-          init_time = init_time | l;
-          init_time = init_time | ((Serial.read() << 8) & 0xff00);
-          init_time = init_time | (Serial.read() & 0xff);
-          DateTime.sync(init_time);
+          wall_time.raw = wall_time.raw | l;
+          wall_time.raw = wall_time.raw | ((Serial.read() << 8) & 0xff00);
+          wall_time.raw= wall_time.raw | (Serial.read() & 0xff);
+	  wall_time.init = 1;
+	  current_millis = prev_millis = millis();
           if (state == STATE_TIME_UNSET)
             state = STATE_DAYTIME;
         }
@@ -129,7 +137,6 @@ void process_incoming() {
  * just monitor for changes in state.
  */
 void dump_state() {
-  DateTime.available();
   Serial.print("state=");
   switch(state) {
     case STATE_START:
@@ -146,11 +153,15 @@ void dump_state() {
       break;
   }
   Serial.print("current_time=");
-  Serial.print(DateTime.Hour, DEC);
+  Serial.print(wall_time.hours, DEC);
   Serial.print(" ");
-  Serial.print(DateTime.Minute, DEC);
+  if (wall_time.minutes < 10)
+    Serial.print("0");
+  Serial.print(wall_time.minutes, DEC);
   Serial.print(" ");
-  Serial.println(DateTime.Second, DEC);
+  if (wall_time.seconds < 10)
+    Serial.print("0");
+  Serial.println(wall_time.seconds, DEC);
   Serial.print("light_level=");
   Serial.println(light_level);
   Serial.print("light_on=");
@@ -172,15 +183,16 @@ void dump_state() {
 
 // This is where the real work happens -- but only during daytime hours.
 void do_daytime() {
+  static unsigned long prev_time = 0;
+
   // if we've crossed into nighttime, switch state and bail
-  if (DateTime.Hour < START_HOUR || DateTime.Hour >= END_HOUR) {
+  if (wall_time.hours < START_HOUR || wall_time.hours >= END_HOUR) {
     state = STATE_NIGHTTIME;
     return;
   }
 
   // this gates execution so that code below this block happens only once per second instead of once per looper pass
-  cur_time = DateTime.now();
-  if (cur_time != prev_time)
+  if (wall_time.raw != prev_time)
     prev_time = cur_time;
   else
     return;
@@ -229,20 +241,24 @@ void do_daytime() {
 // Handles behavior when it's nightime.
 void do_nighttime() {
   // Basically we just keep the lights off and sit and wait until daylight.
-  if (DateTime.Hour >= START_HOUR && DateTime.Hour < END_HOUR) {
+  if (wall_time.hours >= START_HOUR && wall_time.hours < END_HOUR) {
     state = STATE_DAYTIME;
     return;
   }
  
   is_lit = 0;
   digitalWrite(LIGHTS, LOW);
-  if (DateTime.Hour == 0 && DateTime.Minute == 0 && DateTime.Second == 0) illuminated_seconds = 0;
+  if (wall_time.hours == 0 && wall_time.minutes == 0 && wall_time.seconds == 0) illuminated_seconds = 0;
 }
 
 void loop() {
-  unsigned long current_time = 0;
-  
-  DateTime.available();
+  current_time = millis();
+  if (wall_time.init) {
+    wall_time.raw = current_time / 1000;
+    wall_time.seconds = wall_time.raw % 60;
+    wall_time.minutes = (wall_time.raw / 60) % 60;
+    wall_time.hours = (wall_time.raw / (60 * 60)) % 24;
+  }
   switch(state) {
     case STATE_START:
       reset();
@@ -260,178 +276,8 @@ void loop() {
   
   process_incoming();
 
-  current_time = millis();
-  if ((current_time - state_dump_time) > STATE_DUMP_INTERVAL) {
+  if ((current_millis - state_dump_time) > STATE_DUMP_INTERVAL) {
     dump_state();
-    state_dump_time = current_time;
+    state_dump_time = current_millis;
   }
 }
-
-/*
- * NOTICE: APACHE-LICENSED CODE ENDS HERE. CODE BELOW THIS POINT HAS A
- * DIFFERENT LICENSE, AS BELOW.
- * 
- * The code below actually grants no license at all, and its use is thus
- * questionable. I will be writing it out at the earliest opportunity.
- */
-
-/*
-  DateTime.cpp - Arduino Date and Time library
-  Copyright (c) Michael Margolis.  All right reserved.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
-*/
-
-extern "C" {
-  // AVR LibC Includes
-}
-//#include <string.h> // for memset
-#include "DateTime.h"
-#include <wiring.h>
-
-//extern unsigned long _time;
-
-#define LEAP_YEAR(_year) ((_year%4)==0)
-static  byte monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
-
-// private methods
-
-void DateTimeClass::setTime(time_t time)
-{
-    // set the system time to the given time value (as seconds since Jan 1 1970)
-    this->sysTime = time;  
-	this->prevMillis = millis();
-}
-
-extern "C" void __cxa_pure_virtual(void) {
-    while(1);
-    } 
-
-//******************************************************************************
-//* DateTime Public Methods
-//******************************************************************************
-
-DateTimeClass::DateTimeClass()
-{
-   this->status = dtStatusNotSet;
-}
-
-time_t DateTimeClass::now()
-{
-  while( millis() - prevMillis >= 1000){
-    this->sysTime++;
-    this->prevMillis += 1000;
-  }
-  return sysTime;
-}
-
-void DateTimeClass::sync(time_t time) 
-{
-   setTime(time); 
-   //status.isSynced = true;   // this will be set back to false if the clock resets 
-   //status.isSet = true; // if this is true and isSynced is false then clock was reset using EEPROM -- TODO
-   this->status = dtStatusSync;
-}
-
-boolean DateTimeClass::available()
-{  
-// refresh time components if clock is set (even if not synced), just return false if not set
-   if(this->status != dtStatusNotSet) { 
-      this->now(); // refresh sysTime   
-      this->localTime(&this->sysTime,&Second,&Minute,&Hour,&Day,&DayofWeek,&Month,&Year)  ;     
-	  return true;
-   }
-   else
-      return false;
-}
-void DateTimeClass::localTime(time_t *timep,byte *psec,byte *pmin,byte *phour,byte *pday,byte *pwday,byte *pmonth,byte *pyear) {
-// convert the given time_t to time components
-// this is a more compact version of the C library localtime function
-
-  time_t long epoch=*timep;
-  byte year;
-  byte month, monthLength;
-  unsigned long days;
-  
-  *psec=epoch%60;
-  epoch/=60; // now it is minutes
-  *pmin=epoch%60;
-  epoch/=60; // now it is hours
-  *phour=epoch%24;
-  epoch/=24; // now it is days
-  *pwday=(epoch+4)%7;
-  
-  year=70;  
-  days=0;
-  while((unsigned)(days += (LEAP_YEAR(year) ? 366 : 365)) <= epoch) {
-    year++;
-  }
-  *pyear=year; // *pyear is returned as years from 1900
-  
-  days -= LEAP_YEAR(year) ? 366 : 365;
-  epoch -= days; // now it is days in this year, starting at 0
-  //*pdayofyear=epoch;  // days since jan 1 this year
-  
-  days=0;
-  month=0;
-  monthLength=0;
-  for (month=0; month<12; month++) {
-    if (month==1) { // february
-      if (LEAP_YEAR(year)) {
-        monthLength=29;
-      } else {
-        monthLength=28;
-      }
-    } else {
-      monthLength = monthDays[month];
-    }
-    
-    if (epoch>=monthLength) {
-      epoch-=monthLength;
-    } else {
-        break;
-    }
-  }
-  *pmonth=month;  // jan is month 0
-  *pday=epoch+1;  // day of month
-}
-
-
-time_t DateTimeClass::makeTime(byte sec, byte min, byte hour, byte day, byte month, int year ){
-// converts time components to time_t 
-// note year argument is full four digit year (or digits since 2000), i.e.1975, (year 8 is 2008)
-  
-   int i;
-   time_t seconds;
-
-   if(year < 69) 
-      year+= 2000;
-    // seconds from 1970 till 1 jan 00:00:00 this year
-    seconds= (year-1970)*(60*60*24L*365);
-
-    // add extra days for leap years
-    for (i=1970; i<year; i++) {
-        if (LEAP_YEAR(i)) {
-            seconds+= 60*60*24L;
-        }
-    }
-    // add days for this year
-    for (i=0; i<month; i++) {
-      if (i==1 && LEAP_YEAR(year)) { 
-        seconds+= 60*60*24L*29;
-      } else {
-        seconds+= 60*60*24L*monthDays[i];
-      }
-    }
-
-    seconds+= (day-1)*3600*24L;
-    seconds+= hour*3600L;
-    seconds+= min*60L;
-    seconds+= sec;
-    return seconds; 
-}
-
-// make one instance for DateTime class the user 
-DateTimeClass DateTime = DateTimeClass() ;
