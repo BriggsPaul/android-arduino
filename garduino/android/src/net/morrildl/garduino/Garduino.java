@@ -24,7 +24,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -48,7 +47,6 @@ public class Garduino extends Activity {
 				Map<String, String> params = (Map<String, String>)msg.obj;
 				
 				String state = params.get("state");
-				Log.e("booga", state);
 				int imageResource;
 				if ("DAYTIME".equals(state)) {
 					imageResource = R.drawable.sun;

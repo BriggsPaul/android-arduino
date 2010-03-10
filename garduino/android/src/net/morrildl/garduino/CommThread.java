@@ -106,7 +106,6 @@ class CommThread extends Thread {
                 	handler.obtainMessage(0x2a, hm).sendToTarget();
                 }
             } catch (IOException e) {
-            	Log.e("reader", "ioe", e);
                 break;
             }
         }
@@ -117,14 +116,15 @@ class CommThread extends Thread {
         try {
             ostream.write(bytes);
         } catch (IOException e) {
-        	Log.e("writer", "ioe", e);
+        	Log.e("CommThread.write", "exception during write", e);
         }
     }
 
     /* Call this from the main Activity to shutdown the connection */
     public void cancel() {
         try {
-            socket.close();
+        	if (socket != null)
+        		socket.close();
         } catch (IOException e) { }
     }
 }
