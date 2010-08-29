@@ -14,11 +14,15 @@ Android code is generally for Android 2.1 and later, since most of it uses
 Bluetooth. On the Arduino side, I'm using a SparkFun BlueSMiRF as a serial port
 relay.
 
-The Makefiles in the Arduino directories are generally h@x0r3d versions of the
-ones that ship with Arduino distributions -- h@x0r3d because at least in 0017,
-the included Makefile doesn't work. Also, I don't like the way it works, and
-will probably be improving it over time. (For instance, it doesn't handle the
-automatic copy/inclusion of libraries transparently, as the Arduino IDE does.)
+The Makefiles for the Arduino code are derived originally from the one
+included with 0017. I hacked them to make them work with 0018, and to play
+nicely with a system installation. If you add the Arduino Launchpad project to
+an Ubuntu apt-get list and install it, the Makefiles should work pretty much
+as-is.
 
 The code is licensed under the Apache Software License 2.0, which is my
-favorite and which I encourage everyone to consider for their own projects. 
+favorite and which I encourage everyone to consider for their own projects.
+
+Note that the copyright to this code is held by Google, Inc. (my employer),
+not me. This is not an official Android project, nor an official Google
+project.
